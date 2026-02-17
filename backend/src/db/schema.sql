@@ -1,0 +1,85 @@
+CREATE DATABASE IF NOT EXISTS hostel_qr;
+USE hostel_qr;
+
+CREATE TABLE users (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  role ENUM('STUDENT','PARENT','DEPUTY_WARDEN','PRINCIPAL','WATCHMAN') NOT NULL,
+  phone VARCHAR(20) UNIQUE,
+  password_hash VARCHAR(255) NULL,
+  is_active BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE students (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  user_id BIGINT NOT NULL UNIQUE,
+  college_id VARCHAR(30) NOT NULL UNIQUE,
+  name VARCHAR(120) NOT NULL,
+  department VARCHAR(80) NOT NULL,
+  parent_user_id BIGINT NOT NULL,
+  profile_completed BOOLEAN DEFAULT FALSE,
+  account_locked BOOLEAN DEFAULT TRUE,
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (parent_user_id) REFERENCES users(id)
+);
+
+CREATE TABLE parent_otps (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  parent_user_id BIGINT NOT NULL,
+  otp_code VARCHAR(6) NOT NULL,
+  expires_at DATETIME NOT NULL,
+  verified BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (parent_user_id) REFERENCES users(id)
+);
+
+CREATE TABLE leave_requests (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  student_id BIGINT NOT NULL,
+  from_date DATE NOT NULL,
+  to_date DATE NOT NULL,
+  reason TEXT NOT NULL,
+  status ENUM('PENDING_DW','PENDING_PRINCIPAL','APPROVED','REJECTED') DEFAULT 'PENDING_DW',
+  deputy_warden_note TEXT,
+  principal_note TEXT,
+  emergency_extension_requested BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (student_id) REFERENCES students(id)
+);
+
+CREATE TABLE qr_passes (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  leave_request_id BIGINT NOT NULL,
+  student_id BIGINT NOT NULL,
+  qr_token VARCHAR(100) NOT NULL UNIQUE,
+  valid_from DATETIME NOT NULL,
+  valid_to DATETIME NOT NULL,
+  used_exit BOOLEAN DEFAULT FALSE,
+  used_entry BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (leave_request_id) REFERENCES leave_requests(id),
+  FOREIGN KEY (student_id) REFERENCES students(id)
+);
+
+CREATE TABLE gate_logs (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  qr_pass_id BIGINT NOT NULL,
+  watchman_user_id BIGINT NOT NULL,
+  action ENUM('EXIT','ENTRY') NOT NULL,
+  result ENUM('ALLOWED','DENIED') NOT NULL,
+  reason VARCHAR(255),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (qr_pass_id) REFERENCES qr_passes(id),
+  FOREIGN KEY (watchman_user_id) REFERENCES users(id)
+);
+
+CREATE TABLE notifications (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  user_id BIGINT NOT NULL,
+  title VARCHAR(150) NOT NULL,
+  body TEXT NOT NULL,
+  is_read BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
