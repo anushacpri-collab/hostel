@@ -9,7 +9,16 @@ class StudentQrScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Approved Leave QR Pass')),
-      body: Center(child: QrImageView(data: qrToken, size: 260)),
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            QrImageView(data: qrToken, size: 260),
+            const SizedBox(height: 12),
+            Text('Token: $qrToken', textAlign: TextAlign.center),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -18,6 +18,7 @@ class HostelApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'Hostel Entry Authorization',
       theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.indigo),
       home: const LoginSelectorScreen(),

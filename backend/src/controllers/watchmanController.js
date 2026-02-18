@@ -3,14 +3,24 @@ import dayjs from 'dayjs';
 import { pool } from '../config/db.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 
+const extractToken = (raw) => {
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed.token || raw;
+  } catch {
+    return raw;
+  }
+};
+
 export const validateScan = asyncHandler(async (req, res) => {
   const schema = Joi.object({ qrToken: Joi.string().required(), action: Joi.string().valid('EXIT', 'ENTRY').required() });
   const { qrToken, action } = await schema.validateAsync(req.body);
+  const token = extractToken(qrToken);
 
   const [rows] = await pool.execute(
     `SELECT id, valid_from, valid_to, used_exit, used_entry
      FROM qr_passes WHERE qr_token=?`,
-    [qrToken]
+    [token]
   );
 
   let result = 'ALLOWED';
@@ -29,6 +39,9 @@ export const validateScan = asyncHandler(async (req, res) => {
     } else if (action === 'EXIT' && pass.used_exit) {
       result = 'DENIED';
       reason = 'Exit already used';
+    } else if (action === 'ENTRY' && !pass.used_exit) {
+      result = 'DENIED';
+      reason = 'Exit not used yet';
     } else if (action === 'ENTRY' && pass.used_entry) {
       result = 'DENIED';
       reason = 'Entry already used';
