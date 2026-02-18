@@ -18,10 +18,17 @@ export const registerStudent = asyncHandler(async (req, res) => {
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
-    const [existingParent] = await conn.execute('SELECT id FROM users WHERE phone=? LIMIT 1', [body.parentPhone]);
+
+    const [existingStudent] = await conn.execute('SELECT id FROM students WHERE college_id=? LIMIT 1', [body.collegeId]);
+    if (existingStudent.length) throw new HttpError(409, 'College ID already registered');
+
+    const [existingParent] = await conn.execute("SELECT id, role FROM users WHERE phone=? LIMIT 1", [body.parentPhone]);
 
     let parentUserId;
     if (existingParent.length) {
+      if (existingParent[0].role !== 'PARENT') {
+        throw new HttpError(409, 'Phone number is already linked with a non-parent account');
+      }
       parentUserId = existingParent[0].id;
     } else {
       const [parentInsert] = await conn.execute(
@@ -139,4 +146,27 @@ export const verifyParentOtp = asyncHandler(async (req, res) => {
   } finally {
     conn.release();
   }
+});
+
+export const loginStaff = asyncHandler(async (req, res) => {
+  const schema = Joi.object({
+    role: Joi.string().valid('DEPUTY_WARDEN', 'PRINCIPAL', 'WATCHMAN').required(),
+    password: Joi.string().required()
+  });
+  const { role, password } = await schema.validateAsync(req.body);
+
+  const [rows] = await pool.execute(
+    'SELECT id, password_hash, is_active FROM users WHERE role=? ORDER BY id ASC LIMIT 1',
+    [role]
+  );
+  if (!rows.length) throw new HttpError(404, `${role} user not found. Run seed script.`);
+
+  const user = rows[0];
+  if (!user.password_hash || !(await comparePassword(password, user.password_hash))) {
+    throw new HttpError(401, 'Invalid credentials');
+  }
+  if (!user.is_active) throw new HttpError(403, 'Account inactive');
+
+  const token = signToken({ id: user.id, role });
+  res.json({ token, role });
 });
